@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Trend Analysis - ScriptGenius</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .tag-badge {
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        .tag-badge:hover {
+            transform: scale(1.05);
+        }
+        .tag-badge.selected {
+            background-color: #0d6efd !important;
+            color: white !important;
+        }
+        .video-card {
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        .video-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        .video-card .card-img-top {
+            height: 180px;
+            object-fit: cover;
+        }
+        .stats-card {
+            transition: transform 0.3s;
+        }
+        .stats-card:hover {
+            transform: translateY(-5px);
+        }
+        .phrase-badge {
+            font-size: 0.85rem;
+            padding: 0.35em 0.65em;
+            margin-right: 0.5rem;
+            margin-bottom: 0.5rem;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        .phrase-badge:hover {
+            transform: scale(1.05);
+        }
+        .phrase-badge.selected {
+            background-color: #0d6efd !important;
+            color: white !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <nav id="sidebar" class="col-md-3 col-lg-2 d-md-block bg-dark sidebar collapse">
+                <div class="position-sticky pt-3">
+                    <div class="d-flex align-items-center justify-content-center mb-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="red" class="bi bi-youtube me-2" viewBox="0 0 16 16">
+                            <path d="M8.051 1.999h.089c.822.003 4.987.033 6.11.335a2.01 2.01 0 0 1 1.415 1.42c.101.38.172.883.22 1.402l.01.104.022.26.008.104c.065.914.073 1.77.074 1.957v.075c-.001.194-.01 1.108-.082 2.06l-.008.105-.009.104c-.05.572-.124 1.14-.235 1.558a2.007 2.007 0 0 1-1.415 1.42c-1.16.312-5.569.334-6.18.335h-.142c-.309 0-1.587-.006-2.927-.052l-.17-.006-.087-.004-.171-.007-.171-.007c-1.11-.049-2.167-.128-2.654-.26a2.007 2.007 0 0 1-1.415-1.419c-.111-.417-.185-.986-.235-1.558L.09 9.82l-.008-.104A31.4 31.4 0 0 1 0 7.68v-.123c.002-.215.01-.958.064-1.778l.007-.103.003-.052.008-.104.022-.26.01-.104c.048-.519.119-1.023.22-1.402a2.007 2.007 0 0 1 1.415-1.42c.487-.13 1.544-.21 2.654-.26l.17-.007.172-.006.086-.003.171-.007A99.788 99.788 0 0 1 7.858 2h.193zM6.4 5.209v4.818l4.157-2.408L6.4 5.209z"/>
+                        </svg>
+                        <span class="fs-5 fw-bold text-white">ScriptGenius</span>
+                    </div>
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link text-white" href="/country-selector">
+                                <i class="bi bi-globe me-2"></i>
+                                Select Region
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link active text-white" href="/trends">
+                                <i class="bi bi-graph-up me-2"></i>
+                                Trend Analysis
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-white" href="/history">
+                                <i class="bi bi-clock-history me-2"></i>
+                                History
+                            </a>
+                        </li>
+                    </ul>
+                    <hr class="text-white">
+                    <div class="px-3">
+                        <a href="/logout" class="btn btn-outline-light w-100">
+                            <i class="bi bi-box-arrow-right me-2"></i>
+                            Logout
+                        </a>
+                    </div>
+                </div>
+            </nav>
+
+            <!-- Main content -->
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 py-4">
+                <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                    <div>
+                        <h1 class="h2">YouTube Trend Analysis</h1>
+                        <p class="text-muted">Region: <span id="region-display">{{ region }}</span></p>
+                    </div>
+                    <div class="btn-toolbar mb-2 mb-md-0">
+                        <a href="/country-selector" class="btn btn-sm btn-outline-secondary me-2">
+                            <i class="bi bi-globe me-1"></i>
+                            Change Region
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Region and Category Selection -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="card-title mb-0">Select Category</h5>
+                            </div>
+                            <div class="card-body">
+                                <form id="trend-form" class="row g-3">
+                                    <input type="hidden" id="region" value="{{ region }}">
+                                    <div class="col-md-8">
+                                        <label for="category" class="form-label">Category</label>
+                                        <select class="form-select" id="category">
+                                            {% for id, name in categories.items() %}
+                                            <option value="{{ id }}">{{ name }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="col-md-4 d-flex align-items-end">
+                                        <button type="submit" class="btn btn-primary w-100">
+                                            <i class="bi bi-search me-2"></i>Analyze Trends
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Loading Indicator -->
+                <div id="loading" class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-3">Analyzing YouTube trends for {{ region }}...</p>
+                </div>
+
+                <!-- Trend Overview -->
+                <div id="trend-overview" class="row mb-4 d-none">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header bg-primary text-white">
+                                <h5 class="card-title mb-0">Trend Overview</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-3 mb-3">
+                                        <div class="card bg-light stats-card h-100">
+                                            <div class="card-body text-center">
+                                                <i class="bi bi-collection-play text-primary mb-2" style="font-size: 2rem;"></i>
+                                                <h6 class="card-title">Total Videos Analyzed</h6>
+                                                <p class="display-6 mb-0" id="total-videos">0</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3 mb-3">
+                                        <div class="card bg-light stats-card h-100">
+                                            <div class="card-body text-center">
+                                                <i class="bi bi-eye text-primary mb-2" style="font-size: 2rem;"></i>
+                                                <h6 class="card-title">Average Views</h6>
+                                                <p class="display-6 mb-0" id="avg-views">0</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3 mb-3">
+                                        <div class="card bg-light stats-card h-100">
+                                            <div class="card-body text-center">
+                                                <i class="bi bi-hand-thumbs-up text-primary mb-2" style="font-size: 2rem;"></i>
+                                                <h6 class="card-title">Average Likes</h6>
+                                                <p class="display-6 mb-0" id="avg-likes">0</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3 mb-3">
+                                        <div class="card bg-light stats-card h-100">
+                                            <div class="card-body text-center">
+                                                <i class="bi bi-chat-left-text text-primary mb-2" style="font-size: 2rem;"></i>
+                                                <h6 class="card-title">Average Comments</h6>
+                                                <p class="display-6 mb-0" id="avg-comments">0</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Category Distribution Chart -->
+                <div class="row mb-4 d-none" id="charts-row">
+                    <div class="col-md-6 mb-4">
+                        <div class="card h-100">
+                            <div class="card-header bg-primary text-white">
+                                <h5 class="card-title mb-0">Category Distribution</h5>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="categoryChart" height="300"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-4">
+                        <div class="card h-100">
+                            <div class="card-header bg-primary text-white">
+                                <h5 class="card-title mb-0">Video Length Distribution</h5>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="lengthChart" height="300"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Trending Phrases -->
+                <div class="row mb-4 d-none" id="phrases-row">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                                <h5 class="card-title mb-0">Trending Phrases</h5>
+                                <button class="btn btn-sm btn-light" id="clear-phrases">
+                                    <i class="bi bi-x-circle me-1"></i> Clear Selection
+                                </button>
+                            </div>
+                            <div class="card-body">
+                                <p class="text-muted mb-3">Click on phrases to select them for your script</p>
+                                <div id="phrases-container" class="d-flex flex-wrap gap-2"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Popular Tags -->
+                <div class="row mb-4 d-none" id="tags-row">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                                <h5 class="card-title mb-0">Popular Tags</h5>
+                                <button class="btn btn-sm btn-light" id="clear-tags">
+                                    <i class="bi bi-x-circle me-1"></i> Clear Selection
+                                </button>
+                            </div>
+                            <div class="card-body">
+                                <p class="text-muted mb-3">Click on tags to select them for your script</p>
+                                <div id="tags-container" class="d-flex flex-wrap gap-2"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Top Videos -->
+                <div class="row mb-4 d-none" id="videos-row">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                                <h5 class="card-title mb-0">Top Trending Videos</h5>
+                                <button class="btn btn-sm btn-light" id="generate-from-trends" disabled>
+                                    <i class="bi bi-lightning-charge me-1"></i> Generate Script from Trends
+                                </button>
+                            </div>
+                            <div class="card-body">
+                                <p class="text-muted mb-3">Select a video to use as inspiration for your script</p>
+                                <div id="videos-container" class="row g-4"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const trendForm = document.getElementById('trend-form');
+            const regionInput = document.getElementById('region');
+            const regionDisplay = document.getElementById('region-display');
+            const categorySelect = document.getElementById('category');
+            const loadingEl = document.getElementById('loading');
+            const trendOverviewEl = document.getElementById('trend-overview');
+            const chartsRowEl = document.getElementById('charts-row');
+            const phrasesRowEl = document.getElementById('phrases-row');
+            const tagsRowEl = document.getElementById('tags-row');
+            const videosRowEl = document.getElementById('videos-row');
+            const totalVideosEl = document.getElementById('total-videos');
+            const avgViewsEl = document.getElementById('avg-views');
+            const avgLikesEl = document.getElementById('avg-likes');
+            const avgCommentsEl = document.getElementById('avg-comments');
+            const phrasesContainerEl = document.getElementById('phrases-container');
+            const tagsContainerEl = document.getElementById('tags-container');
+            const videosContainerEl = document.getElementById('videos-container');
+            const generateFromTrendsBtn = document.getElementById('generate-from-trends');
+            const clearTagsBtn = document.getElementById('clear-tags');
+            const clearPhrasesBtn = document.getElementById('clear-phrases');
+            
+            let categoryChart = null;
+            let lengthChart = null;
+            let currentTrendData = null;
+            let selectedTags = [];
+            let selectedPhrases = [];
+            let selectedVideo = null;
+            
+            // Fetch trend data
+            trendForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const region = regionInput.value;
+                const category = categorySelect.value;
+                
+                // Show loading
+                loadingEl.classList.remove('d-none');
+                trendOverviewEl.classList.add('d-none');
+                chartsRowEl.classList.add('d-none');
+                phrasesRowEl.classList.add('d-none');
+                tagsRowEl.classList.add('d-none');
+                videosRowEl.classList.add('d-none');
+                phrasesContainerEl.innerHTML = '';
+                tagsContainerEl.innerHTML = '';
+                videosContainerEl.innerHTML = '';
+                
+                try {
+                    const response = await fetch(`/api/trends?region=${region}&category=${category}`);
+                    const data = await response.json();
+                    
+                    if (data.error) {
+                        throw new Error(data.error);
+                    }
+                    
+                    currentTrendData = data;
+                    renderTrendData(data);
+                } catch (error) {
+                    console.error('Error:', error);
+                    alert('Failed to load trend data. Please try again.');
+                } finally {
+                    loadingEl.classList.add('d-none');
+                }
+            });
+            
+            // Render trend data
+            function renderTrendData(data) {
+                // Reset selections
+                selectedTags = [];
+                selectedPhrases = [];
+                selectedVideo = null;
+                updateGenerateButton();
+                
+                // Show overview section
+                trendOverviewEl.classList.remove('d-none');
+                
+                // Update overview stats
+                if (data.total_videos) {
+                    // This is trend analysis data
+                    totalVideosEl.textContent = data.total_videos;
+                    avgViewsEl.textContent = numberWithCommas(data.avg_views);
+                    avgLikesEl.textContent = numberWithCommas(data.avg_likes);
+                    avgCommentsEl.textContent = numberWithCommas(data.avg_comments);
+                    
+                    // Show charts
+                    chartsRowEl.classList.remove('d-none');
+                    
+                    // Render category chart
+                    renderCategoryChart(data.categories);
+                    
+                    // Render length chart
+                    renderLengthChart(data.video_length);
+                    
+                    // Show trending phrases section if available
+                    if (data.trending_phrases && Object.keys(data.trending_phrases).length > 0) {
+                        phrasesRowEl.classList.remove('d-none');
+                        renderPhrases(data.trending_phrases);
+                    }
+                    
+                    // Show tags section
+                    tagsRowEl.classList.remove('d-none');
+                    
+                    // Render tags
+                    renderTags(data.tags);
+                    
+                    // Show videos section
+                    videosRowEl.classList.remove('d-none');
+                    
+                    // Render top videos
+                    if (data.top_videos) {
+                        renderTopVideos(data.top_videos);
+                    }
+                } else if (data.items) {
+                    // This is video list data
+                    totalVideosEl.textContent = data.items.length;
+                    
+                    // Calculate averages
+                    let totalViews = 0;
+                    let totalLikes = 0;
+                    let totalComments = 0;
+                    
+                    data.items.forEach(item => {
+                        const stats = item.statistics || {};
+                        totalViews += parseInt(stats.viewCount || 0);
+                        totalLikes += parseInt(stats.likeCount || 0);
+                        totalComments += parseInt(stats.commentCount || 0);
+                    });
+                    
+                    const avgViews = Math.round(totalViews / data.items.length);
+                    const avgLikes = Math.round(totalLikes / data.items.length);
+                    const avgComments = Math.round(totalComments / data.items.length);
+                    
+                    avgViewsEl.textContent = numberWithCommas(avgViews);
+                    avgLikesEl.textContent = numberWithCommas(avgLikes);
+                    avgCommentsEl.textContent = numberWithCommas(avgComments);
+                    
+                    // Show videos section
+                    videosRowEl.classList.remove('d-none');
+                    
+                    // Render videos
+                    renderVideos(data.items);
+                }
+            }
+            
+            // Render category chart
+            function renderCategoryChart(categories) {
+                const ctx = document.getElementById('categoryChart').getContext('2d');
+                
+                // Destroy existing chart if it exists
+                if (categoryChart) {
+                    categoryChart.destroy();
+                }
+                
+                const labels = Object.keys(categories);
+                const counts = labels.map(label => categories[label].count);
+                const views = labels.map(label => categories[label].views / 1000000); // Convert to millions
+                
+                categoryChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            {
+                                label: 'Video Count',
+                                data: counts,
+                                backgroundColor: 'rgba(54, 162, 235, 0.7)',
+                                borderColor: 'rgba(54, 162, 235, 1)',
+                                borderWidth: 1,
+                                yAxisID: 'y'
+                            },
+                            {
+                                label: 'Views (Millions)',
+                                data: views,
+                                backgroundColor: 'rgba(255, 99, 132, 0.7)',
+                                borderColor: 'rgba(255, 99, 132, 1)',
+                                borderWidth: 1,
+                                yAxisID: 'y1'
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Video Count'
+                                }
+                            },
+                            y1: {
+                                beginAtZero: true,
+                                position: 'right',
+                                grid: {
+                                    drawOnChartArea: false
+                                },
+                                title: {
+                                    display: true,
+                                    text: 'Views (Millions)'
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+            
+            // Render length chart
+            function renderLengthChart(lengthData) {
+                const ctx = document.getElementById('lengthChart').getContext('2d');
+                
+                // Destroy existing chart if it exists
+                if (lengthChart) {
+                    lengthChart.destroy();
+                }
+                
+                const labels = Object.keys(lengthData);
+                const data = labels.map(label => lengthData[label]);
+                
+                lengthChart = new Chart(ctx, {
+                    type: 'pie',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            data: data,
+                            backgroundColor: [
+                                'rgba(255, 99, 132, 0.7)',
+                                'rgba(54, 162, 235, 0.7)',
+                                'rgba(255, 206, 86, 0.7)',
+                                'rgba(75, 192, 192, 0.7)',
+                                'rgba(153, 102, 255, 0.7)'
+                            ],
+                            borderColor: [
+                                'rgba(255, 99, 132, 1)',
+                                'rgba(54, 162, 235, 1)',
+                                'rgba(255, 206, 86, 1)',
+                                'rgba(75, 192, 192, 1)',
+                                'rgba(153, 102, 255, 1)'
+                            ],
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                position: 'right'
+                            },
+                            title: {
+                                display: true,
+                                text: 'Video Length Distribution'
+                            }
+                        }
+                    }
+                });
+            }
+            
+            // Render trending phrases
+            function renderPhrases(phrasesData) {
+                phrasesContainerEl.innerHTML = '';
+                
+                Object.entries(phrasesData).forEach(([category, phrases]) => {
+                    // Add category header
+                    const categoryHeader = document.createElement('div');
+                    categoryHeader.className = 'w-100 mb-2 mt-3';
+                    categoryHeader.innerHTML = `<h6>${category}</h6>`;
+                    phrasesContainerEl.appendChild(categoryHeader);
+                    
+                    // Add phrases
+                    Object.entries(phrases).forEach(([phrase, count]) => {
+                        const phraseEl = document.createElement('span');
+                        phraseEl.className = 'badge bg-light text-dark phrase-badge';
+                        phraseEl.textContent = `${phrase} (${count})`;
+                        phraseEl.dataset.phrase = phrase;
+                        
+                        phraseEl.addEventListener('click', function() {
+                            this.classList.toggle('selected');
+                            
+                            if (this.classList.contains('selected')) {
+                                if (!selectedPhrases.includes(phrase)) {
+                                    selectedPhrases.push(phrase);
+                                }
+                            } else {
+                                const index = selectedPhrases.indexOf(phrase);
+                                if (index > -1) {
+                                    selectedPhrases.splice(index, 1);
+                                }
+                            }
+                            
+                            updateGenerateButton();
+                        });
+                        
+                        phrasesContainerEl.appendChild(phraseEl);
+                    });
+                });
+            }
+            
+            // Clear selected phrases
+            clearPhrasesBtn.addEventListener('click', function() {
+                selectedPhrases = [];
+                document.querySelectorAll('.phrase-badge.selected').forEach(el => {
+                    el.classList.remove('selected');
+                });
+                updateGenerateButton();
+            });
+            
+            // Render tags
+            function renderTags(tags) {
+                tagsContainerEl.innerHTML = '';
+                
+                Object.entries(tags).forEach(([tag, count]) => {
+                    const tagEl = document.createElement('span');
+                    tagEl.className = 'badge bg-light text-dark tag-badge fs-6 p-2';
+                    tagEl.textContent = `${tag} (${count})`;
+                    tagEl.dataset.tag = tag;
+                    
+                    tagEl.addEventListener('click', function() {
+                        this.classList.toggle('selected');
+                        
+                        if (this.classList.contains('selected')) {
+                            if (!selectedTags.includes(tag)) {
+                                selectedTags.push(tag);
+                            }
+                        } else {
+                            const index = selectedTags.indexOf(tag);
+                            if (index > -1) {
+                                selectedTags.splice(index, 1);
+                            }
+                        }
+                        
+                        updateGenerateButton();
+                    });
+                    
+                    tagsContainerEl.appendChild(tagEl);
+                });
+            }
+            
+            // Clear selected tags
+            clearTagsBtn.addEventListener('click', function() {
+                selectedTags = [];
+                document.querySelectorAll('.tag-badge.selected').forEach(el => {
+                    el.classList.remove('selected');
+                });
+                updateGenerateButton();
+            });
+            
+            // Render top videos
+            function renderTopVideos(videos) {
+                videosContainerEl.innerHTML = '';
+                
+                videos.forEach(video => {
+                    const videoEl = document.createElement('div');
+                    videoEl.className = 'col-md-6 col-lg-4';
+                    videoEl.innerHTML = `
+                        <div class="card h-100 video-card" data-video-id="${video.video_id}">
+                            <img src="${video.thumbnail}" class="card-img-top" alt="${video.title}">
+                            <div class="card-body">
+                                <h5 class="card-title">${video.title}</h5>
+                                <p class="card-text">Channel: ${video.channel}</p>
+                                <div class="d-flex justify-content-between">
+                                    <span><i class="bi bi-eye me-1"></i> ${numberWithCommas(video.views)}</span>
+                                    <span><i class="bi bi-hand-thumbs-up me-1"></i> ${numberWithCommas(video.likes)}</span>
+                                </div>
+                            </div>
+                            <div class="card-footer d-flex justify-content-between">
+                                <a href="https://www.youtube.com/watch?v=${video.video_id}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-youtube me-1"></i> Watch
+                                </a>
+                                <button class="btn btn-sm btn-outline-success select-video-btn">
+                                    <i class="bi bi-check-circle me-1"></i> Select
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    
+                    videosContainerEl.appendChild(videoEl);
+                    
+                    // Add event listener to select button
+                    const selectBtn = videoEl.querySelector('.select-video-btn');
+                    selectBtn.addEventListener('click', function() {
+                        // Deselect all videos
+                        document.querySelectorAll('.video-card').forEach(card => {
+                            card.classList.remove('border-success');
+                        });
+                        document.querySelectorAll('.select-video-btn').forEach(btn => {
+                            btn.classList.remove('btn-success');
+                            btn.classList.add('btn-outline-success');
+                            btn.innerHTML = '<i class="bi bi-check-circle me-1"></i> Select';
+                        });
+                        
+                        // Select this video
+                        const card = this.closest('.video-card');
+                        card.classList.add('border-success');
+                        this.classList.remove('btn-outline-success');
+                        this.classList.add('btn-success');
+                        this.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i> Selected';
+                        
+                        selectedVideo = videos.find(v => v.video_id === card.dataset.videoId);
+                        updateGenerateButton();
+                    });
+                });
+            }
+            
+            // Render videos from items
+            function renderVideos(items) {
+                videosContainerEl.innerHTML = '';
+                
+                items.forEach(item => {
+                    const snippet = item.snippet || {};
+                    const stats = item.statistics || {};
+                    
+                    const videoEl = document.createElement('div');
+                    videoEl.className = 'col-md-6 col-lg-4';
+                    videoEl.innerHTML = `
+                        <div class="card h-100 video-card" data-video-id="${item.id}">
+                            <img src="${snippet.thumbnails?.medium?.url || ''}" class="card-img-top" alt="${snippet.title || 'Video thumbnail'}">
+                            <div class="card-body">
+                                <h5 class="card-title">${snippet.title || 'Untitled'}</h5>
+                                <p class="card-text">Channel: ${snippet.channelTitle || 'Unknown'}</p>
+                                <div class="d-flex justify-content-between">
+                                    <span><i class="bi bi-eye me-1"></i> ${numberWithCommas(stats.viewCount || 0)}</span>
+                                    <span><i class="bi bi-hand-thumbs-up me-1"></i> ${numberWithCommas(stats.likeCount || 0)}</span>
+                                </div>
+                            </div>
+                            <div class="card-footer d-flex justify-content-between">
+                                <a href="https://www.youtube.com/watch?v=${item.id}" target="_blank" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-youtube me-1"></i> Watch
+                                </a>
+                                <button class="btn btn-sm btn-outline-success select-video-btn">
+                                    <i class="bi bi-check-circle me-1"></i> Select
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    
+                    videosContainerEl.appendChild(videoEl);
+                    
+                    // Add event listener to select button
+                    const selectBtn = videoEl.querySelector('.select-video-btn');
+                    selectBtn.addEventListener('click', function() {
+                        // Deselect all videos
+                        document.querySelectorAll('.video-card').forEach(card => {
+                            card.classList.remove('border-success');
+                        });
+                        document.querySelectorAll('.select-video-btn').forEach(btn => {
+                            btn.classList.remove('btn-success');
+                            btn.classList.add('btn-outline-success');
+                            btn.innerHTML = '<i class="bi bi-check-circle me-1"></i> Select';
+                        });
+                        
+                        // Select this video
+                        const card = this.closest('.video-card');
+                        card.classList.add('border-success');
+                        this.classList.remove('btn-outline-success');
+                        this.classList.add('btn-success');
+                        this.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i> Selected';
+                        
+                        const videoId = card.dataset.videoId;
+                        const video = items.find(i => i.id === videoId);
+                        
+                        if (video) {
+                            const snippet = video.snippet || {};
+                            selectedVideo = {
+                                video_id: video.id,
+                                title: snippet.title || 'Untitled',
+                                channel: snippet.channelTitle || 'Unknown',
+                                tags: snippet.tags || [],
+                                category_id: snippet.categoryId || '0',
+                                description: snippet.description || ''
+                            };
+                        }
+                        
+                        updateGenerateButton();
+                    });
+                });
+            }
+            
+            // Update generate button state
+            function updateGenerateButton() {
+                if (selectedVideo || selectedTags.length > 0 || selectedPhrases.length > 0) {
+                    generateFromTrendsBtn.disabled = false;
+                } else {
+                    generateFromTrendsBtn.disabled = true;
+                }
+            }
+            
+            // Generate script from trends
+            generateFromTrendsBtn.addEventListener('click', function() {
+                if (!currentTrendData) {
+                    alert('Please analyze trends first');
+                    return;
+                }
+                
+                let topic = '';
+                let tags = [];
+                let category = '0';
+                
+                // Get topic from selected video
+                if (selectedVideo) {
+                    topic = selectedVideo.title;
+                    tags = selectedVideo.tags || [];
+                    category = selectedVideo.category_id || '0';
+                }
+                
+                // Add selected tags
+                if (selectedTags.length > 0) {
+                    tags = [...new Set([...tags, ...selectedTags])];
+                }
+                
+                // Add selected phrases to tags
+                if (selectedPhrases.length > 0) {
+                    tags = [...new Set([...tags, ...selectedPhrases])];
+                }
+                
+                // Redirect to generator with trend data
+                window.location.href = `/generator?topic=${encodeURIComponent(topic)}&region=${regionInput.value}&category=${category}&tags=${encodeURIComponent(JSON.stringify(tags))}`;
+            });
+            
+            // Helper function to format numbers with commas
+            function numberWithCommas(x) {
+                return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+            }
+            
+            // Initial trend fetch
+            trendForm.dispatchEvent(new Event('submit'));
+        });
+    </script>
+</body>
+</html>
